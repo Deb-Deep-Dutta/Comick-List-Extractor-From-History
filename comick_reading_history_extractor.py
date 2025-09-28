@@ -121,7 +121,6 @@ def discover_profiles():
                     "browser":"Chromium","browser_name":bname,"path_type":"chromium","profile_dir": str(prof),
                     "profile_key": key,"display_name": f"{bname} — {prof_name}","history_path": str(hist),"icon_path": icon
                 })
-    ROAM = get_env_paths()[1]
     ff = ROAM/"Mozilla"/"Firefox"
     ini = ff/"profiles.ini"
     if ini.exists():
@@ -147,9 +146,13 @@ def read_chromium_history(history_path: Path):
     try:
         conn = sqlite3.connect(str(tmp)); conn.row_factory = sqlite3.Row
         cur = conn.cursor(); cur.execute("SELECT url, title FROM urls")
-        rows = [{"url": r["url"] or "", "title": r["title"]or ""} for r in cur]; conn.close()
+        rows = [{"url": r["url"] or "", "title": r["title"] or ""} for r in cur]
+        conn.close()
     except Exception as e:
         print(f"[chromium read] {history_path}: {e}")
+    finally:
+        try: shutil.rmtree(tmp.parent, ignore_errors=True)
+        except: pass
     return rows
 
 def read_firefox_history(places_sqlite: Path):
@@ -158,9 +161,13 @@ def read_firefox_history(places_sqlite: Path):
     try:
         conn = sqlite3.connect(str(tmp)); conn.row_factory = sqlite3.Row
         cur = conn.cursor(); cur.execute("SELECT url, title FROM moz_places")
-        rows = [{"url": r["url"] or "", "title": r["title"] or ""} for r in cur]; conn.close()
+        rows = [{"url": r["url"] or "", "title": r["title"] or ""} for r in cur]
+        conn.close()
     except Exception as e:
         print(f"[firefox read] {places_sqlite}: {e}")
+    finally:
+        try: shutil.rmtree(tmp.parent, ignore_errors=True)
+        except: pass
     return rows
 
 def aggregate(entries, profile_label):
@@ -200,7 +207,7 @@ def _numeric_or_none(v):
 
 def export_all(results, export_dir: Path):
     if not results: return None
-    ts = datetime.utcnow().strftime("%YMMDDT%H%M%S")  # keep short; folder already has context
+    ts = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
     with_urls_json = export_dir / f"comick_results_{ts}.json"
     with_urls_csv  = export_dir / f"comick_results_{ts}.csv"
     with_urls_xlsx = export_dir / f"comick_results_{ts}.xlsx"
@@ -258,7 +265,7 @@ class App(tk.Tk):
         self.profiles = discover_profiles()
         self.results = []
         self._build_ui()
-        self.after(200, self.auto_scan_and_export)
+        self.after(200, self.auto_scan_on_start)
 
     def _build_ui(self):
         top = ttk.Frame(self, padding=8); top.pack(fill="x")
@@ -352,16 +359,15 @@ class App(tk.Tk):
                 )
             )
 
-    def auto_scan_and_export(self):
+    def auto_scan_on_start(self):
         try:
             if self.profiles:
                 self._scan(self.profiles)
-                export_all(self.results, self.export_dir)
-                self.status.set(f"Auto-exported to: {self.export_dir}")
+                self.status.set("Auto-scan complete. Use 'Export Files' to save the 7 outputs.")
             else:
                 self.status.set("No profiles found.")
         except Exception as e:
-            self.status.set(f"Auto export error: {e}")
+            self.status.set(f"Auto-scan error: {e}")
 
 def main():
     app = App()
