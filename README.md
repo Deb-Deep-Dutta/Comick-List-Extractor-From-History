@@ -60,7 +60,7 @@ This tool reads **local** history databases on the machine where you run it. If 
 
 ```bash
 git clone https://github.com/Deb-Deep-Dutta/Comick-List-Extractor-From-History.git
-cd REPO
+cd Comick-List-Extractor-From-History
 python -m pip install -r requirements.txt
 ````
 
